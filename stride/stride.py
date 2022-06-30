@@ -594,10 +594,11 @@ def GetCluseterName(species_tree, S, cluster):
             n = species_tree.get_common_ancestor(complement)
     return n.name + "_" + list(cluster)[0]
       
-def WriteResults(species_tree_fn_or_text, roots, S, clades, clusters_counter, output_dir):
+def WriteResults(species_tree_fn_or_text, roots, S, clades, clusters_counter, output_dir, prefix=None):
 #    for c in clusters_counter:
 #        print((clusters_counter[c], c))
-    print("\nResults written to:\n" + os.path.realpath(output_dir))
+    if prefix is not None:
+        print("\nResults written to:\n" + os.path.realpath(output_dir))
     # Label species tree nodes
     try:
         species_tree = ete.Tree(species_tree_fn_or_text, format=2)
@@ -610,7 +611,8 @@ def WriteResults(species_tree_fn_or_text, roots, S, clades, clusters_counter, ou
         if not n.is_leaf():
             n.name = "N%d" % iNode
             iNode+=1
-    species_tree.write(outfile=output_dir + "Species_tree_labelled.tre", format=1)
+    s_tree_name = output_dir + "Species_tree_labelled.tre" if prefix is None else prefix + ".tree"
+    species_tree.write(outfile=s_tree_name, format=1)
 #    print(species_tree)
 #    species_tree = ete.Tree(output_dir + "Species_tree_labelled.tre", format=1)
     # Calculate probabilities
@@ -625,7 +627,7 @@ def WriteResults(species_tree_fn_or_text, roots, S, clades, clusters_counter, ou
         print("To get a probability distribution for the root, please supply a fully resolved input species tree")
     # Write numbers of duplications
     table = dict()
-    new_tree = ete.Tree(output_dir + "Species_tree_labelled.tre", format=1)
+    new_tree = ete.Tree(s_tree_name, format=1)
     for clade in clades + [frozenset([s]) for s in S]:
         qAnti = False
         anticlade = S.difference(clade)
@@ -644,7 +646,8 @@ def WriteResults(species_tree_fn_or_text, roots, S, clades, clusters_counter, ou
         else:
             p = 0.
         table[node.name] = [node.name, "X" if (clade in roots or anticlade in roots) else "", "%0.1f%%" % (100.*p) , X, clusters_counter[y]]
-    with open(output_dir + "Duplication_counts.csv", 'wb') as outfile:
+    csv_file_name = output_dir + "Duplication_counts.csv" if prefix is None else prefix + ".csv"
+    with open(csv_file_name, 'wb') as outfile:
         writer = csv.writer(outfile, delimiter="\t")
         writer.writerow(["Branch", "MP Root", "Probability", "Duplications supporting clade", "Duplications supporting opposite clade"])
         qSingle = len(thisRoot) == 1
@@ -719,7 +722,7 @@ def Main_Full(args):
 #        d.close()
 #        outputFigFN = outputFN_base + ".pdf"
         #DrawDuplicationsTree(args.Species_tree, clusters_counter, outputFigFN)
-        WriteResults(args.Species_tree, roots, species, clades, clusters_counter, outputDir)
+        WriteResults(args.Species_tree, roots, species, clades, clusters_counter, outputDir, args.output)
         print("")
       
 if __name__ == "__main__":
@@ -729,6 +732,7 @@ if __name__ == "__main__":
     parser.add_argument("-S", "--Species_tree", help="Unrooted species tree in newick format")
     parser.add_argument("-d", "--directory", action="store_true", help="Process all trees in input directory")
     parser.add_argument("--debug", action="store_true", help="Run in serial to enable easier debugging")
+    parser.add_argument("-o", "--output", type=str, help="Output Prefix")
 #    parser.add_argument("-o", "--output", action="store_true", help="Write out gene trees rooted at duplications")
     parser.set_defaults(Func=Main_Full)   
     args = parser.parse_args()
